@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Markov Blanket Simulation</title>
+  <style>
+    canvas {
+      border: 1px solid #000;
+      display: block;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="simulation" width="400" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById('simulation');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 20;
+    const cols = canvas.width / gridSize;
+    const rows = canvas.height / gridSize;
+
+    // Cell agent with internal, sensory, and active states
+    let cell = {
+      x: 10,
+      y: 10,
+      internalState: "calm", // or "alert"
+      sensoryInputs: [],
+      updateSensoryInputs: function (ecm) {
+        // Sense 8 surrounding tiles
+        this.sensoryInputs = [];
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = this.x + dx;
+            const ny = this.y + dy;
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+              this.sensoryInputs.push(ecm[ny][nx]);
+            }
+          }
+        }
+      },
+      updateInternalState: function () {
+        // If surrounded by obstacles, become "alert"
+        const obstacleCount = this.sensoryInputs.filter(v => v === 1).length;
+        this.internalState = obstacleCount > 4 ? "alert" : "calm";
+      },
+      act: function (ecm) {
+        // Move more aggressively if "alert", otherwise randomly
+        const directions = [
+          { x: 0, y: -1 },
+          { x: 1, y: 0 },
+          { x: 0, y: 1 },
+          { x: -1, y: 0 }
+        ];
+
+        const validMoves = directions.filter(dir => {
+          const newX = this.x + dir.x;
+          const newY = this.y + dir.y;
+          return (
+            newX >= 0 && newX < cols &&
+            newY >= 0 && newY < rows &&
+            ecm[newY][newX] === 0
+          );
+        });
+
+        if (validMoves.length > 0) {
+          let move;
+          if (this.internalState === "alert") {
+            // Try to move away from obstacles
+            move = validMoves.sort(() => Math.random() - 0.5).find(dir => {
+              const checkX = this.x + dir.x;
+              const checkY = this.y + dir.y;
+              const neighborObstacles = [
+                [-1, 0], [1, 0], [0, -1], [0, 1]
+              ].reduce((sum, [dx, dy]) => {
+                const nx = checkX + dx;
+                const ny = checkY + dy;
+                return sum + (ecm[ny]?.[nx] === 1 ? 1 : 0);
+              }, 0);
+              return neighborObstacles < 3;
+            }) || validMoves[0];
+          } else {
+            move = validMoves[Math.floor(Math.random() * validMoves.length)];
+          }
+          this.x += move.x;
+          this.y += move.y;
+        }
+      }
+    };
+
+    // Environment (ECM): Random obstacles
+    const ecm = Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => Math.random() < 0.2 ? 1 : 0)
+    );
+    ecm[cell.y][cell.x] = 0;
+
+    function drawGrid() {
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (ecm[y][x] === 1) {
+            ctx.fillStyle = 'gray'; // Obstacle
+            ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+          }
+        }
+      }
+    }
+
+    function drawCell() {
+      ctx.fillStyle = cell.internalState === "alert" ? 'orange' : 'blue';
+      ctx.fillRect(cell.x * gridSize, cell.y * gridSize, gridSize, gridSize);
+    }
+
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      cell.updateSensoryInputs(ecm); // Sense surroundings (sensory)
+      cell.updateInternalState();    // Update internal state
+      cell.act(ecm);                 // Act based on state
+      drawCell();
+    }
+
+    setInterval(update, 300);
+  </script>
+</body>
+</html>

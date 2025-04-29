@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cell-ECM Agent Model</title>
+  <style>
+    canvas {
+      border: 1px solid #000;
+      display: block;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="simulation" width="400" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById('simulation');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 20;
+    const cols = canvas.width / gridSize;
+    const rows = canvas.height / gridSize;
+
+    // Cell agent
+    let cell = { x: 0, y: 0 };
+
+    // ECM grid (randomly filled with obstacles)
+    const ecm = Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => Math.random() < 0.2 ? 1 : 0)
+    );
+
+    // Ensure the starting point is empty
+    ecm[cell.y][cell.x] = 0;
+
+    function drawGrid() {
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (ecm[y][x] === 1) {
+            ctx.fillStyle = 'gray'; // ECM obstacle
+            ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+          }
+        }
+      }
+    }
+
+    function drawCell() {
+      ctx.fillStyle = 'red';
+      ctx.fillRect(cell.x * gridSize, cell.y * gridSize, gridSize, gridSize);
+    }
+
+    function moveCell() {
+      const directions = [
+        { x: 0, y: -1 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 }
+      ];
+
+      const validMoves = directions.filter(dir => {
+        const newX = cell.x + dir.x;
+        const newY = cell.y + dir.y;
+        return (
+          newX >= 0 && newX < cols &&
+          newY >= 0 && newY < rows &&
+          ecm[newY][newX] === 0
+        );
+      });
+
+      if (validMoves.length > 0) {
+        const move = validMoves[Math.floor(Math.random() * validMoves.length)];
+        cell.x += move.x;
+        cell.y += move.y;
+      }
+    }
+
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      moveCell();
+      drawCell();
+    }
+
+    setInterval(update, 300);
+  </script>
+</body>
+</html>
